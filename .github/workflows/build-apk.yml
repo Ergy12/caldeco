@@ -3,40 +3,36 @@ name: Android CI
 on:
   push:
     branches:
-      - main # Le déclencheur pour les push sur la branche 'main' (ou la branche que vous utilisez)
+      - main
 
 jobs:
   build:
-    runs-on: ubuntu-latest # L'environnement sur lequel le job s'exécutera
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code # Étape pour récupérer votre code depuis le dépôt
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17 # Configure le Java Development Kit (JDK) nécessaire pour Gradle
+      - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle' # Met en cache les dépendances Gradle pour des builds plus rapides
+          cache: 'gradle'
 
-      - name: Grant execute permission for gradlew # Rend le script Gradle exécutable
-        run: chmod +x gradlew
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./android/gradlew # MODIFIÉ ICI : ajout de ./android/
 
-      - name: Build release APK # L'étape principale pour construire l'APK de release
-        run: ./gradlew assembleRelease # Exécute la tâche Gradle pour assembler l'APK de release
+      - name: Build release APK
+        run: ./android/gradlew assembleRelease # MODIFIÉ ICI : ajout de ./android/
         env:
-          # --- DÉBUT DES INFORMATIONS DE SIGNATURE (POUR TEST UNIQUEMENT) ---
-          # Rappel : ces informations sont exposées dans votre workflow et ne sont PAS sécurisées pour la production.
-          # Pour la production, utilisez les secrets GitHub et la méthode Base64.
-          KEYSTORE_PATH: ${{ github.workspace }}/app/my-release-key.jks # Assurez-vous que votre fichier .jks est ici
-          KEYSTORE_PASSWORD: votre_mot_de_passe_keystore # REMPLACEZ PAR LE VRAI MOT DE PASSE DE VOTRE KEYSTORE
-          KEY_ALIAS: votre_alias_de_cle # REMPLACEZ PAR LE VRAI ALIAS DE VOTRE CLÉ
-          KEY_PASSWORD: votre_mot_de_passe_cle # REMPLACEZ PAR LE VRAI MOT DE PASSE DE VOTRE CLÉ
-          # --- FIN DES INFORMATIONS DE SIGNATURE ---
+          KEYSTORE_PATH: ${{ github.workspace }}/app/my-release-key.jks
+          KEYSTORE_PASSWORD: votre_mot_de_passe_keystore
+          KEY_ALIAS: votre_alias_de_cle
+          KEY_PASSWORD: votre_mot_de_passe_cle
 
-      - name: Upload Release APK # Télécharge l'APK construit en tant qu'artefact du workflow
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release # Le nom de l'artefact
-          path: app/build/outputs/apk/release/app-release.apk # Le chemin où Gradle génère l'APK
+          name: app-release
+          path: app/build/outputs/apk/release/app-release.apk
