@@ -33,8 +33,6 @@ jobs:
 
       - name: Get Flutter dependencies
         run: flutter pub get
-        # Assurez-vous que le répertoire de travail est la racine de votre projet Flutter.
-        # Si votre pubspec.yaml est dans un sous-dossier (ex: 'my_app/'), changez '.' par 'my_app/'.
         working-directory: ./ 
 
       - name: Verify package_config.json exists
@@ -42,7 +40,6 @@ jobs:
         working-directory: ./ 
       
       - name: Create local.properties for Android SDK and Flutter SDK paths
-        # CETTE ÉTAPE A ÉTÉ MISE À JOUR
         run: |
           echo "sdk.dir=$ANDROID_HOME" > android/local.properties
           echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
@@ -56,7 +53,8 @@ jobs:
         run: ./gradlew assembleRelease --stacktrace --info
         working-directory: ./android
         env:
-          ORG_GRADLE_PROJECT_KEY_STORE_FILE: ${{ secrets.KEY_STORE_FILE }}
-          ORG_GRADLE_PROJECT_KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
-          ORG_GRADLE_PROJECT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          ORG_GRADLE_PROJECT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          # NOUVELLE CONFIGURATION DES SECRETS (correspondant à getenv("...") dans build.gradle.kts)
+          KEYSTORE_PATH: ${{ secrets.KEY_STORE_FILE }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
