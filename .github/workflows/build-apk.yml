@@ -20,18 +20,33 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      # Ajoutez cette étape pour configurer Flutter et obtenir son chemin
-      - name: Setup Flutter
+      - name: Setup Flutter # Cette action exporte FLUTTER_ROOT comme variable d'environnement
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable' # ou 'beta', 'dev' selon vos besoins
-        id: flutter-path # C'est important d'avoir cet ID pour récupérer le chemin
 
-      - name: Create local.properties # Cette étape est cruciale pour le SDK Android et Flutter
+      # --- AJOUT DE L'ÉTAPE DE DÉBOGAGE POUR FLUTTER_ROOT ---
+      - name: Debug FLUTTER_ROOT value
         run: |
+          echo "Value of FLUTTER_ROOT (from env): $FLUTTER_ROOT"
+          if [ -z "$FLUTTER_ROOT" ]; then
+            echo "ERROR: FLUTTER_ROOT is empty or not set. Build will likely fail."
+            exit 1 # Arrête le workflow ici si FLUTTER_ROOT est vide
+          fi
+      # --- FIN DE L'ÉTAPE DE DÉBOGAGE ---
+
+      - name: Create local.properties
+        run: |
+          set -euxo pipefail # Cela garantit que la commande échouera si l'une des sous-commandes échoue
           echo "sdk.dir=${{ runner.tool_cache }}/android/sdk" > "$GITHUB_WORKSPACE/android/local.properties"
-          echo "flutter.sdk=${{ steps.flutter-path.outputs.flutter-directory }}" >> "$GITHUB_WORKSPACE/android/local.properties"
-        # Pas besoin d'env ici car on utilise directement la sortie d'une étape précédente
+          # Utilisation de la variable d'environnement FLUTTER_ROOT qui devrait être définie par l'action 'Setup Flutter'
+          echo "flutter.sdk=$FLUTTER_ROOT" >> "$GITHUB_WORKSPACE/android/local.properties"
+        # Pas de working-directory ici car nous utilisons des chemins absolus avec $GITHUB_WORKSPACE
+
+      # --- AJOUT DE L'ÉTAPE DE VÉRIFICATION DE local.properties ---
+      - name: Verify local.properties content
+        run: cat "$GITHUB_WORKSPACE/android/local.properties"
+      # --- FIN DE L'ÉTAPE DE VÉRIFICATION ---
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
