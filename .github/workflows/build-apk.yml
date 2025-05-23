@@ -20,15 +20,18 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      # --- DÉBUT DES AJOUTS ---
-      - name: Create local.properties
+      # Ajoutez cette étape pour configurer Flutter et obtenir son chemin
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable' # ou 'beta', 'dev' selon vos besoins
+        id: flutter-path # C'est important d'avoir cet ID pour récupérer le chemin
+
+      - name: Create local.properties # Cette étape est cruciale pour le SDK Android et Flutter
         run: |
           echo "sdk.dir=${{ runner.tool_cache }}/android/sdk" > "$GITHUB_WORKSPACE/android/local.properties"
-        # OU alternativement, si le runner.tool_cache ne fonctionne pas toujours
-        # echo "sdk.dir=/usr/local/lib/android/sdk" > "$GITHUB_WORKSPACE/android/local.properties"
-        # Expliquons ici que $GITHUB_WORKSPACE est la racine du dépôt,
-        # et que le fichier doit être créé dans android/
-      # --- FIN DES AJOUTS ---
+          echo "flutter.sdk=${{ steps.flutter-path.outputs.flutter-directory }}" >> "$GITHUB_WORKSPACE/android/local.properties"
+        # Pas besoin d'env ici car on utilise directement la sortie d'une étape précédente
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
