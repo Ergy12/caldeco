@@ -32,39 +32,30 @@ jobs:
           # flutter-version: '3.22.2'
 
       - name: Get Flutter dependencies
-        # Cette étape exécute 'flutter pub get' pour télécharger les packages
-        # et générer les fichiers nécessaires comme package_config.json.
         run: flutter pub get
         # Assurez-vous que le répertoire de travail est la racine de votre projet Flutter.
         # Si votre pubspec.yaml est dans un sous-dossier (ex: 'my_app/'), changez '.' par 'my_app/'.
         working-directory: ./ 
 
       - name: Verify package_config.json exists
-        # Cette étape est optionnelle mais utile pour le débogage :
-        # elle vérifie que le fichier crucial a bien été créé.
         run: ls -l ./.dart_tool/package_config.json || true
-        # Assurez-vous que le répertoire de travail est la racine de votre projet Flutter.
         working-directory: ./ 
       
-      - name: Create local.properties for Android SDK path
-        # Crée le fichier local.properties qui indique à Gradle où trouver le SDK Android.
-        # Assurez-vous que ce fichier est créé dans le sous-dossier 'android/' de votre projet Flutter.
-        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+      - name: Create local.properties for Android SDK and Flutter SDK paths
+        # CETTE ÉTAPE A ÉTÉ MISE À JOUR
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+          echo "flutter.sdk=$FLUTTER_ROOT" >> android/local.properties
         working-directory: ./ 
 
       - name: Grant execute permission to gradlew
-        # Rend le script gradlew exécutable.
-        # Le script gradlew se trouve dans le sous-dossier 'android/'.
         run: chmod +x gradlew
         working-directory: ./android
 
       - name: Build Android Release APK
-        # Exécute la tâche de build Gradle pour l'APK de release.
-        # Le répertoire de travail doit être le sous-dossier 'android/'.
         run: ./gradlew assembleRelease --stacktrace --info
         working-directory: ./android
         env:
-          # Assurez-vous que ces secrets sont configurés dans votre dépôt GitHub.
           ORG_GRADLE_PROJECT_KEY_STORE_FILE: ${{ secrets.KEY_STORE_FILE }}
           ORG_GRADLE_PROJECT_KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
           ORG_GRADLE_PROJECT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
