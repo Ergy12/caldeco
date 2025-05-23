@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
@@ -13,56 +16,56 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up Java Development Kit
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
 
-      - name: Setup Flutter # Cette action exporte FLUTTER_ROOT comme variable d'environnement
+      - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' # ou 'beta', 'dev' selon vos besoins
+          channel: 'stable'
+          # Il est recommandé de spécifier une version exacte de Flutter pour des builds reproductibles.
+          # Vérifiez votre version locale avec `flutter --version` et mettez-la ici.
+          # Par exemple:
+          # flutter-version: '3.22.2'
 
-      # --- AJOUT DE L'ÉTAPE DE DÉBOGAGE POUR FLUTTER_ROOT ---
-      - name: Debug FLUTTER_ROOT value
-        run: |
-          echo "Value of FLUTTER_ROOT (from env): $FLUTTER_ROOT"
-          if [ -z "$FLUTTER_ROOT" ]; then
-            echo "ERROR: FLUTTER_ROOT is empty or not set. Build will likely fail."
-            exit 1 # Arrête le workflow ici si FLUTTER_ROOT est vide
-          fi
-      # --- FIN DE L'ÉTAPE DE DÉBOGAGE ---
+      - name: Get Flutter dependencies
+        # Cette étape exécute 'flutter pub get' pour télécharger les packages
+        # et générer les fichiers nécessaires comme package_config.json.
+        run: flutter pub get
+        # Assurez-vous que le répertoire de travail est la racine de votre projet Flutter.
+        # Si votre pubspec.yaml est dans un sous-dossier (ex: 'my_app/'), changez '.' par 'my_app/'.
+        working-directory: ./ 
 
-      - name: Create local.properties
-        run: |
-          set -euxo pipefail # Cela garantit que la commande échouera si l'une des sous-commandes échoue
-          echo "sdk.dir=${{ runner.tool_cache }}/android/sdk" > "$GITHUB_WORKSPACE/android/local.properties"
-          # Utilisation de la variable d'environnement FLUTTER_ROOT qui devrait être définie par l'action 'Setup Flutter'
-          echo "flutter.sdk=$FLUTTER_ROOT" >> "$GITHUB_WORKSPACE/android/local.properties"
-        # Pas de working-directory ici car nous utilisons des chemins absolus avec $GITHUB_WORKSPACE
+      - name: Verify package_config.json exists
+        # Cette étape est optionnelle mais utile pour le débogage :
+        # elle vérifie que le fichier crucial a bien été créé.
+        run: ls -l ./.dart_tool/package_config.json || true
+        # Assurez-vous que le répertoire de travail est la racine de votre projet Flutter.
+        working-directory: ./ 
+      
+      - name: Create local.properties for Android SDK path
+        # Crée le fichier local.properties qui indique à Gradle où trouver le SDK Android.
+        # Assurez-vous que ce fichier est créé dans le sous-dossier 'android/' de votre projet Flutter.
+        run: echo "sdk.dir=$ANDROID_HOME" > android/local.properties
+        working-directory: ./ 
 
-      # --- AJOUT DE L'ÉTAPE DE VÉRIFICATION DE local.properties ---
-      - name: Verify local.properties content
-        run: cat "$GITHUB_WORKSPACE/android/local.properties"
-      # --- FIN DE L'ÉTAPE DE VÉRIFICATION ---
-
-      - name: Grant execute permission for gradlew
+      - name: Grant execute permission to gradlew
+        # Rend le script gradlew exécutable.
+        # Le script gradlew se trouve dans le sous-dossier 'android/'.
         run: chmod +x gradlew
         working-directory: ./android
 
-      - name: Build release APK
+      - name: Build Android Release APK
+        # Exécute la tâche de build Gradle pour l'APK de release.
+        # Le répertoire de travail doit être le sous-dossier 'android/'.
         run: ./gradlew assembleRelease --stacktrace --info
         working-directory: ./android
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/app/my-release-key.jks
-          KEYSTORE_PASSWORD: votre_mot_de_passe_keystore
-          KEY_ALIAS: votre_alias_de_cle
-          KEY_PASSWORD: votre_mot_de_passe_cle
-
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release
-          path: android/app/build/outputs/apk/release/app-release.apk
+          # Assurez-vous que ces secrets sont configurés dans votre dépôt GitHub.
+          ORG_GRADLE_PROJECT_KEY_STORE_FILE: ${{ secrets.KEY_STORE_FILE }}
+          ORG_GRADLE_PROJECT_KEY_STORE_PASSWORD: ${{ secrets.KEY_STORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
