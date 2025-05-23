@@ -20,14 +20,23 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      # L'étape chmod doit aussi être exécutée depuis le bon répertoire
+      # --- DÉBUT DES AJOUTS ---
+      - name: Create local.properties
+        run: |
+          echo "sdk.dir=${{ runner.tool_cache }}/android/sdk" > "$GITHUB_WORKSPACE/android/local.properties"
+        # OU alternativement, si le runner.tool_cache ne fonctionne pas toujours
+        # echo "sdk.dir=/usr/local/lib/android/sdk" > "$GITHUB_WORKSPACE/android/local.properties"
+        # Expliquons ici que $GITHUB_WORKSPACE est la racine du dépôt,
+        # et que le fichier doit être créé dans android/
+      # --- FIN DES AJOUTS ---
+
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew # gradlew est à la racine du sous-dossier 'android'
-        working-directory: ./android # <-- AJOUTÉ ICI : Exécute cette commande dans le dossier android/
+        run: chmod +x gradlew
+        working-directory: ./android
 
       - name: Build release APK
-        run: ./gradlew assembleRelease --stacktrace --info # Gardons les options de débogage pour l'instant
-        working-directory: ./android # <-- AJOUTÉ ICI : Exécute cette commande dans le dossier android/
+        run: ./gradlew assembleRelease --stacktrace --info
+        working-directory: ./android
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/app/my-release-key.jks
           KEYSTORE_PASSWORD: votre_mot_de_passe_keystore
@@ -38,5 +47,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          # Le chemin est relatif à la racine du dépôt, donc 'app/build...' est correct ici
-          path: android/app/build/outputs/apk/release/app-release.apk # <-- VÉRIFIEZ CE CHEMIN. Il devrait être 'android/app/build...' si 'app' est un sous-dossier de 'android'
+          path: android/app/build/outputs/apk/release/app-release.apk
