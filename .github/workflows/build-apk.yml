@@ -3,38 +3,40 @@ name: Android CI
 on:
   push:
     branches:
-      - main # Ou la branche que vous utilisez pour les versions de release
+      - main # Le déclencheur pour les push sur la branche 'main' (ou la branche que vous utilisez)
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # L'environnement sur lequel le job s'exécutera
 
     steps:
-      - name: Checkout code
+      - name: Checkout code # Étape pour récupérer votre code depuis le dépôt
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 17 # Configure le Java Development Kit (JDK) nécessaire pour Gradle
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+          cache: 'gradle' # Met en cache les dépendances Gradle pour des builds plus rapides
 
-      - name: Grant execute permission for gradlew
+      - name: Grant execute permission for gradlew # Rend le script Gradle exécutable
         run: chmod +x gradlew
 
-      - name: Build release APK
-        run: ./gradlew assembleRelease
+      - name: Build release APK # L'étape principale pour construire l'APK de release
+        run: ./gradlew assembleRelease # Exécute la tâche Gradle pour assembler l'APK de release
         env:
-          # Remplacez ces valeurs par celles de votre keystore.
-          # Ceci est pour un test simple, ce n'est PAS sécurisé pour la production.
-          KEYSTORE_PATH: ${{ github.workspace }}/app/my-release-key.jks # Chemin vers votre fichier .jks
-          KEYSTORE_PASSWORD: votre_mot_de_passe_keystore # Remplacez par le vrai mot de passe
-          KEY_ALIAS: votre_alias_de_cle # Remplacez par votre vrai alias
-          KEY_PASSWORD: votre_mot_de_passe_cle # Remplacez par le vrai mot de passe
+          # --- DÉBUT DES INFORMATIONS DE SIGNATURE (POUR TEST UNIQUEMENT) ---
+          # Rappel : ces informations sont exposées dans votre workflow et ne sont PAS sécurisées pour la production.
+          # Pour la production, utilisez les secrets GitHub et la méthode Base64.
+          KEYSTORE_PATH: ${{ github.workspace }}/app/my-release-key.jks # Assurez-vous que votre fichier .jks est ici
+          KEYSTORE_PASSWORD: votre_mot_de_passe_keystore # REMPLACEZ PAR LE VRAI MOT DE PASSE DE VOTRE KEYSTORE
+          KEY_ALIAS: votre_alias_de_cle # REMPLACEZ PAR LE VRAI ALIAS DE VOTRE CLÉ
+          KEY_PASSWORD: votre_mot_de_passe_cle # REMPLACEZ PAR LE VRAI MOT DE PASSE DE VOTRE CLÉ
+          # --- FIN DES INFORMATIONS DE SIGNATURE ---
 
-      - name: Upload Release APK
+      - name: Upload Release APK # Télécharge l'APK construit en tant qu'artefact du workflow
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: app/build/outputs/apk/release/app-release.apk # Assurez-vous que le chemin est correct
+          name: app-release # Le nom de l'artefact
+          path: app/build/outputs/apk/release/app-release.apk # Le chemin où Gradle génère l'APK
