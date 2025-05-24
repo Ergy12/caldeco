@@ -145,9 +145,39 @@ class FormulaInterpreter {
   
   // Find undefined variables in an expression
   Set<String> _findUndefinedVariables(dynamic node, Set<String> definedVariables) {
-    // Implement recursive traversal to find variables
-    // This is a placeholder - would need actual implementation
-    return {};
+    final Set<String> undefined = {};
+
+    if (node is String) {
+      // This regex checks if the string matches a typical identifier format.
+      // This helps to avoid treating operator symbols (e.g., "+", "==") as variables.
+      // Known limitation: This cannot distinguish between an identifier `foo` and a
+      // string literal `"foo"` if the AST represents both as a plain Dart String "foo".
+      // A more robust solution would involve the parser producing distinct AST node types
+      // for identifiers vs. string literals.
+      final RegExp potentialVariable = RegExp(r'^[a-zA-Z_][a-zA-Z0-9_]*$');
+      if (potentialVariable.hasMatch(node) && !definedVariables.contains(node)) {
+        undefined.add(node);
+      }
+    } else if (node is List) {
+      // If the node is a list, it might represent an operation with operands,
+      // or a sequence of elements. Recursively find undefined variables in each element.
+      for (final element in node) {
+        undefined.addAll(_findUndefinedVariables(element, definedVariables));
+      }
+    } else if (node is Map) {
+      // If the node is a map, it might represent a structured expression (e.g., a function call).
+      // Recursively find undefined variables in each value of the map.
+      // Depending on the specific AST structure for maps, one might need to be more selective
+      // (e.g., only traverse certain keys like 'arguments' or 'operands').
+      for (final value in node.values) {
+        undefined.addAll(_findUndefinedVariables(value, definedVariables));
+      }
+    }
+    // Numeric (num), boolean (bool), or null nodes are considered literals or non-variable
+    // parts of the expression and do not contain undefined variables themselves.
+    // Custom AST nodes for string literals (if introduced) would also be handled here by ignoring them.
+
+    return undefined;
   }
   
   // Generate suggestions for formula completion
