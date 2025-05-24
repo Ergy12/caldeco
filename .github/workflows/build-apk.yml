@@ -49,25 +49,25 @@ jobs:
         run: chmod +x gradlew
         working-directory: ./android
 
-      - name: Decode Keystore
-        run: |
-          echo "Attempting to decode keystore..."
-          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "KEYSTORE_BASE64 secret is not set or is empty."
-            exit 1
-          fi
-          mkdir -p android/app # Ensure the directory exists
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-keystore.jks
-          if [ $? -ne 0 ]; then
-            echo "Failed to decode keystore."
-            exit 1
-          fi
-          if [ ! -s android/app/release-keystore.jks ]; then
-            echo "Decoded keystore file is empty. Check base64 encoding or secret."
-            exit 1
-          fi
-          echo "Keystore decoded successfully to android/app/release-keystore.jks"
-        working-directory: ./ # Run from root to ensure relative path android/app is correct
+      # - name: Decode Keystore
+      #   run: |
+      #     echo "Attempting to decode keystore..."
+      #     if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+      #       echo "KEYSTORE_BASE64 secret is not set or is empty."
+      #       exit 1
+      #     fi
+      #     mkdir -p android/app # Ensure the directory exists
+      #     echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-keystore.jks
+      #     if [ $? -ne 0 ]; then
+      #       echo "Failed to decode keystore."
+      #       exit 1
+      #     fi
+      #     if [ ! -s android/app/release-keystore.jks ]; then
+      #       echo "Decoded keystore file is empty. Check base64 encoding or secret."
+      #       exit 1
+      #     fi
+      #     echo "Keystore decoded successfully to android/app/release-keystore.jks"
+      #   working-directory: ./ # Run from root to ensure relative path android/app is correct
 
       - name: Build Android Debug APK
         run: ./gradlew assembleDebug --stacktrace --info
