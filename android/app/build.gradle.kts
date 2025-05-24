@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.helloworld"
+    namespace = "com.votreentreprise.caldec"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.helloworld"
+        applicationId = "com.votreentreprise.caldec"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
