@@ -236,7 +236,7 @@ class PdfService {
           pw.Padding(
             padding: const pw.EdgeInsets.all(8),
             child: pw.Text(
-              'Formule',
+              'Nom de la Formule', // Changed header
               style: pw.TextStyle(font: fontBold),
               textAlign: pw.TextAlign.left,
             ),
@@ -244,7 +244,15 @@ class PdfService {
           pw.Padding(
             padding: const pw.EdgeInsets.all(8),
             child: pw.Text(
-              'Résultat',
+              'Expression', // New header column
+              style: pw.TextStyle(font: fontBold),
+              textAlign: pw.TextAlign.left, // Expression can be long, left align
+            ),
+          ),
+          pw.Padding(
+            padding: const pw.EdgeInsets.all(8),
+            child: pw.Text(
+              'Résultat', // Existing header
               style: pw.TextStyle(font: fontBold),
               textAlign: pw.TextAlign.right,
             ),
@@ -256,6 +264,13 @@ class PdfService {
     // Add result rows
     for (var formula in formulas) {
       final result = results[formula.name];
+      String expressionText;
+
+      if (formula.isConditional || formula.expression == null || formula.expression!.isEmpty) {
+        expressionText = '(Formule Conditionnelle)';
+      } else {
+        expressionText = formula.expression!;
+      }
       
       rows.add(
         pw.TableRow(
@@ -265,6 +280,14 @@ class PdfService {
               child: pw.Text(
                 formula.name,
                 style: pw.TextStyle(font: font),
+              ),
+            ),
+            pw.Padding(
+              padding: const pw.EdgeInsets.all(8),
+              child: pw.Text(
+                expressionText,
+                style: pw.TextStyle(font: font, fontStyle: expressionText == '(Formule Conditionnelle)' ? pw.FontStyle.italic : pw.FontStyle.normal),
+                textAlign: pw.TextAlign.left,
               ),
             ),
             pw.Padding(
@@ -280,8 +303,8 @@ class PdfService {
       );
     }
     
-    if (rows.length <= 1) {
-      // If only the header row, add a message
+    if (rows.length <= 1) { // Only header row exists
+      // If only the header row, add a message spanning all columns
       rows.add(
         pw.TableRow(
           children: [
@@ -290,9 +313,11 @@ class PdfService {
               child: pw.Text(
                 'Aucun résultat',
                 style: pw.TextStyle(font: font, color: PdfColors.grey700),
+                textAlign: pw.TextAlign.left,
               ),
             ),
-            pw.Container(),
+            pw.Container(), // Empty cell for Expression column
+            pw.Container(), // Empty cell for Result column
           ],
         ),
       );
@@ -301,8 +326,9 @@ class PdfService {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey300),
       columnWidths: {
-        0: const pw.FlexColumnWidth(3),
-        1: const pw.FlexColumnWidth(2),
+        0: const pw.FlexColumnWidth(2.5), // Name
+        1: const pw.FlexColumnWidth(3.5), // Expression (give it more space)
+        2: const pw.FlexColumnWidth(1.5), // Result
       },
       children: rows,
     );

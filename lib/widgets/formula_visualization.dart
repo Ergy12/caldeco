@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../models/formula_model.dart';
 import '../models/variable_model.dart';
-import '../providers/calculator_provider.dart';
+// import '../providers/calculator_provider.dart'; // Not directly used, context for _interpreter
 import '../services/formula_interpreter.dart';
+import '../services/formula_tokenizer_service.dart'; // Added
+import '../models/formula_token.dart'; // Added
+import '../utils/formula_token_styler.dart'; // Added
 
 class FormulaVisualization extends StatefulWidget {
   final Formula formula;
@@ -27,11 +30,13 @@ class _FormulaVisualizationState extends State<FormulaVisualization> with Single
   Map<String, dynamic> _evaluationResults = {};
   int? _activeConditionIndex;
   final FormulaInterpreter _interpreter = FormulaInterpreter();
+  late FormulaTokenizerService _tokenizerService; // Added
 
   @override
   void initState() {
     super.initState();
     _interpreter.initialize();
+    _tokenizerService = FormulaTokenizerService(); // Initialize
     _testValues = Map.from(widget.currentValues);
     _animationController = AnimationController(
       vsync: this,
@@ -482,13 +487,14 @@ class _FormulaVisualizationState extends State<FormulaVisualization> with Single
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: theme.colorScheme.outline),
                   ),
-                  child: Text(
-                    condition,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  // child: Text(  // Replaced by _buildTokensDisplay
+                  //   condition,
+                  //   style: theme.textTheme.bodyMedium?.copyWith(
+                  //     fontFamily: 'monospace',
+                  //     fontWeight: FontWeight.w500,
+                  //   ),
+                  // ),
+                  child: _buildTokensDisplay(condition, widget.variables),
                 ),
                 
                 const SizedBox(height: 16),
@@ -507,13 +513,14 @@ class _FormulaVisualizationState extends State<FormulaVisualization> with Single
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: theme.colorScheme.outline),
                   ),
-                  child: Text(
-                    resultExpression,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  // child: Text( // Replaced by _buildTokensDisplay
+                  //   resultExpression,
+                  //   style: theme.textTheme.bodyMedium?.copyWith(
+                  //     fontFamily: 'monospace',
+                  //     fontWeight: FontWeight.w500,
+                  //   ),
+                  // ),
+                  child: _buildTokensDisplay(resultExpression, widget.variables),
                 ),
                 
                 if (isActive && resultValue != null)
@@ -652,13 +659,14 @@ class _FormulaVisualizationState extends State<FormulaVisualization> with Single
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: theme.colorScheme.outline),
                   ),
-                  child: Text(
-                    defaultExpression,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontFamily: 'monospace',
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  // child: Text( // Replaced by _buildTokensDisplay
+                  //   defaultExpression,
+                  //   style: theme.textTheme.bodyMedium?.copyWith(
+                  //     fontFamily: 'monospace',
+                  //     fontWeight: FontWeight.w500,
+                  //   ),
+                  // ),
+                  child: _buildTokensDisplay(defaultExpression, widget.variables),
                 ),
                 
                 if (isActive && resultValue != null)
@@ -717,13 +725,14 @@ class _FormulaVisualizationState extends State<FormulaVisualization> with Single
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: theme.colorScheme.outline),
           ),
-          child: Text(
-            widget.formula.expression!,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          // child: Text( // Replaced by _buildTokensDisplay
+          //   widget.formula.expression!,
+          //   style: theme.textTheme.bodyLarge?.copyWith(
+          //     fontFamily: 'monospace',
+          //     fontWeight: FontWeight.w500,
+          //   ),
+          // ),
+          child: _buildTokensDisplay(widget.formula.expression!, widget.variables),
         ),
         const SizedBox(height: 16),
         Container(
@@ -763,5 +772,30 @@ class _FormulaVisualizationState extends State<FormulaVisualization> with Single
     } else {
       return value.toString();
     }
+  }
+
+  // Helper method to build token display
+  Widget _buildTokensDisplay(String expression, List<Variable> variables) {
+    if (expression.trim().isEmpty) {
+      return Text(
+        'N/A', 
+        style: TextStyle(fontStyle: FontStyle.italic, color: Theme.of(context).disabledColor)
+      );
+    }
+    final tokens = _tokenizerService.tokenize(expression, variables);
+    if (tokens.isEmpty) {
+      // If tokenizer returns no tokens for a non-empty string, display the original string.
+      // This might happen if the expression is just whitespace or unhandled characters.
+      return Text(expression, style: DefaultTextStyle.of(context).style.copyWith(fontFamily: 'monospace'));
+    }
+
+    return Wrap(
+      spacing: 2.0, // Horizontal spacing between chips
+      runSpacing: 4.0, // Vertical spacing between lines of chips
+      children: tokens.map((token) {
+        // Use a smaller font size for display within visualization for better fit
+        return FormulaTokenStyler.getTokenWidget(token, context, fontSize: 14.0);
+      }).toList(),
+    );
   }
 }

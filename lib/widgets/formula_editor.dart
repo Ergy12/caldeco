@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/formula_model.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/formula_model.dart';
 import '../models/variable_model.dart';
 import '../providers/calculator_provider.dart';
-import '../services/formula_interpreter.dart';
+// import '../services/formula_interpreter.dart'; // FormulaInterpreter might not be needed directly now
+import '../services/formula_tokenizer_service.dart'; // Added for tokenizer
+import '../models/formula_token.dart'; // Added for token model
 import 'intelligent_formula_builder.dart';
 import 'formula_visualization.dart';
+// import 'formula_display_widget.dart'; // Replaced by RichFormulaEditableWidget
+import 'rich_formula_editable_widget.dart'; // Added for rich editable widget
 
 class FormulaEditor extends StatefulWidget {
   final Formula? formula;
@@ -18,30 +25,45 @@ class FormulaEditor extends StatefulWidget {
 
 class _FormulaEditorState extends State<FormulaEditor> {
   late TextEditingController _nameController;
-  late TextEditingController _expressionController;
-  late TextEditingController _defaultExpressionController;
+  late TextEditingController _expressionController; // Used for simple formula
+  late TextEditingController _defaultExpressionController; // Used for conditional default
   bool _isConditional = false;
   List<Condition> _conditions = [];
+  // Lists to manage TextEditControllers for conditional formulas
+  List<TextEditingController> _conditionControllers = [];
+  List<TextEditingController> _resultExpressionControllers = [];
+  late FormulaTokenizerService _tokenizerService; // Added tokenizer service instance
   bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
+    _tokenizerService = FormulaTokenizerService(); // Initialize tokenizer service
     _initializeControllers();
+
+    // Add listener to expressionController to update the FormulaDisplayWidget
+    // Ensure _expressionController is initialized before adding listener
+    if (!_isConditional) {
+       _expressionController.addListener(_onExpressionChanged);
+    }
   }
 
   void _initializeControllers() {
     _isEditing = widget.formula != null;
-    
+
     if (_isEditing) {
       _nameController = TextEditingController(text: widget.formula!.name);
       _isConditional = widget.formula!.isConditional;
-      
+
       if (_isConditional) {
-        _conditions = widget.formula!.conditions?.toList() ?? [];
+        _conditions = widget.formula!.conditions?.map((c) => Condition(condition: c.condition, resultExpression: c.resultExpression)).toList() ?? [];
         _defaultExpressionController = TextEditingController(text: widget.formula!.defaultExpression ?? '');
+        _expressionController = TextEditingController(); // Initialize, though not primary for conditional
+        _initializeConditionControllers();
       } else {
         _expressionController = TextEditingController(text: widget.formula!.expression ?? '');
+        _defaultExpressionController = TextEditingController();
+        _clearConditionControllers(); // Clear any existing condition controllers if switching from conditional
       }
     } else {
       _nameController = TextEditingController();
@@ -49,12 +71,84 @@ class _FormulaEditorState extends State<FormulaEditor> {
       _defaultExpressionController = TextEditingController();
     }
   }
+  
+  void _onExpressionChanged() {
+    // This will trigger a rebuild of widgets that depend on the state,
+    // allowing FormulaDisplayWidget to update.
+    // Only call setState if the widget is still mounted.
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void _initializeConditionControllers() {
+    _clearConditionControllers(); // Dispose existing before re-initializing
+    for (int i = 0; i < _conditions.length; i++) {
+      final condition = _conditions[i];
+      final conditionController = TextEditingController(text: condition.condition);
+      conditionController.addListener(() {
+        if (i < _conditions.length) {
+          _conditions[i].condition = conditionController.text;
+        }
+      });
+      _conditionControllers.add(conditionController);
+
+      final resultController = TextEditingController(text: condition.resultExpression);
+      resultController.addListener(() {
+        if (i < _conditions.length) {
+          _conditions[i].resultExpression = resultController.text;
+        }
+      });
+      _resultExpressionControllers.add(resultController);
+    }
+  }
+
+  void _clearConditionControllers() {
+    for (var controller in _conditionControllers) {
+      controller.dispose();
+    }
+    _conditionControllers = [];
+    for (var controller in _resultExpressionControllers) {
+      controller.dispose();
+    }
+    _resultExpressionControllers = [];
+  }
+  
+  @override
+  void didUpdateWidget(FormulaEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.formula != oldWidget.formula) {
+      // Re-initialize controllers if the formula instance itself changes
+      // This might involve disposing old controllers and creating new ones
+      // For simplicity, this example assumes full re-initialization via _initializeControllers
+      // which handles clearing and repopulating based on the new widget.formula.
+      
+      // First, remove old listeners if any controller is about to be replaced.
+      _expressionController.removeListener(_onExpressionChanged);
+      _defaultExpressionController.removeListener(_onExpressionChanged); // If it had one.
+
+      // Dispose all condition controllers before re-evaluating the formula type
+      _clearConditionControllers();
+      
+      _initializeControllers(); // This will repopulate _conditions and then call _initializeConditionControllers if conditional
+
+      // Re-add listener to the appropriate controller
+      if (!_isConditional) {
+        _expressionController.addListener(_onExpressionChanged);
+      } else {
+        // Potentially add listener to _defaultExpressionController if needed for its own preview
+      }
+    }
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _expressionController.removeListener(_onExpressionChanged);
     _expressionController.dispose();
     _defaultExpressionController.dispose();
+    _clearConditionControllers(); // Dispose all condition-related controllers
     super.dispose();
   }
 
@@ -142,9 +236,28 @@ class _FormulaEditorState extends State<FormulaEditor> {
           ],
           selected: {_isConditional},
           onSelectionChanged: (Set<bool> newSelection) {
-            setState(() {
-              _isConditional = newSelection.first;
-            });
+            final newIsConditional = newSelection.first;
+            if (_isConditional != newIsConditional) {
+              setState(() {
+                _isConditional = newIsConditional;
+                if (_isConditional) {
+                  _expressionController.removeListener(_onExpressionChanged);
+                  // If switching to conditional and _conditions is empty,
+                  // _initializeConditionControllers won't run from _initializeControllers.
+                  // We might want to add a default first condition or ensure it's handled.
+                  // For now, _initializeConditionControllers is called if _conditions is populated.
+                  // If _conditions was empty, _addCondition will handle creating new controllers.
+                  if (_conditions.isEmpty) { // If was simple, and switching to conditional with no prior conditions
+                     _clearConditionControllers(); // ensure any stray controllers are gone
+                  } else {
+                     _initializeConditionControllers(); // If there were pre-existing conditions model objects
+                  }
+                } else {
+                  _clearConditionControllers(); // Clear condition controllers when switching to simple
+                  _expressionController.addListener(_onExpressionChanged);
+                }
+              });
+            }
           },
         ),
       ],
@@ -167,11 +280,10 @@ class _FormulaEditorState extends State<FormulaEditor> {
           ),
         ),
         const SizedBox(height: 8),
-        IntelligentFormulaBuilder(
-          formulaController: _expressionController,
-          variables: variables,
-          isCondition: false,
-          onSuggestionSelected: _insertTextAtCursor,
+        // IntelligentFormulaBuilder removed, RichFormulaEditableWidget is now the primary input
+        RichFormulaEditableWidget(
+          textController: _expressionController,
+          knownVariables: variables,
         ),
         const SizedBox(height: 16),
         // Live formula visualization with sample values
@@ -220,14 +332,22 @@ class _FormulaEditorState extends State<FormulaEditor> {
           ),
         ),
         const SizedBox(height: 16),
-        // Hidden text field for backward compatibility
-        Offstage(
-          offstage: true,
-          child: TextFormField(
-            controller: _expressionController,
-            maxLines: 1,
+        // Variable and Operator buttons are now placed below RichFormulaEditableWidget
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface.withOpacity(0.5), // Subtle background for button area
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+          ),
+          child: Column(
+            children: [
+              _buildVariableButtonsForController(variables, _expressionController),
+              _buildOperatorButtonsForController(_expressionController),
+            ],
           ),
         ),
+        // Offstage TextFormField is no longer needed here as IFB is removed.
       ],
     );
   }
@@ -322,29 +442,32 @@ class _FormulaEditorState extends State<FormulaEditor> {
           style: Theme.of(context).textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
-        IntelligentFormulaBuilder(
-          formulaController: _defaultExpressionController,
-          variables: variables,
-          isCondition: false,
-          onSuggestionSelected: (text) => _insertTextToController(text, _defaultExpressionController),
+        RichFormulaEditableWidget(
+          textController: _defaultExpressionController,
+          knownVariables: variables,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+          ),
+          child: Column(
+            children: [
+              _buildVariableButtonsForController(variables, _defaultExpressionController),
+              _buildOperatorButtonsForController(_defaultExpressionController),
+            ],
+          ),
         ),
       ],
     );
   }
 
   Widget _buildConditionCard(int index, List<Variable> variables) {
-    final condition = _conditions[index];
-    final conditionTextController = TextEditingController(text: condition.condition);
-    final resultTextController = TextEditingController(text: condition.resultExpression);
-
-    // Update condition when text changes
-    conditionTextController.addListener(() {
-      condition.condition = conditionTextController.text;
-    });
-
-    resultTextController.addListener(() {
-      condition.resultExpression = resultTextController.text;
-    });
+    // Use the state-managed controllers
+    final conditionTextController = _conditionControllers[index];
+    final resultTextController = _resultExpressionControllers[index];
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -383,11 +506,33 @@ class _FormulaEditorState extends State<FormulaEditor> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            IntelligentFormulaBuilder(
-              formulaController: conditionTextController,
-              variables: variables,
-              isCondition: true,
-              onSuggestionSelected: (text) => _insertTextToController(text, conditionTextController),
+            Container( // Background for Condition field
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.05), // Very light red
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.2)),
+              ),
+              child: RichFormulaEditableWidget(
+                textController: conditionTextController,
+                knownVariables: variables,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Buttons for condition
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+              ),
+              child: Column(
+                children: [
+                  _buildVariableButtonsForController(variables, conditionTextController),
+                  _buildOperatorButtonsForController(conditionTextController),
+                  _buildLogicalOperatorButtonsForController(conditionTextController), // Logical operators for conditions
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             Text(
@@ -395,11 +540,32 @@ class _FormulaEditorState extends State<FormulaEditor> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            IntelligentFormulaBuilder(
-              formulaController: resultTextController,
-              variables: variables,
-              isCondition: false,
-              onSuggestionSelected: (text) => _insertTextToController(text, resultTextController),
+            Container( // Background for Result field
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.05), // Very light blue
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.2)),
+              ),
+              child: RichFormulaEditableWidget(
+                textController: resultTextController,
+                knownVariables: variables,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Buttons for result
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface.withOpacity(0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.5)),
+              ),
+              child: Column(
+                children: [
+                  _buildVariableButtonsForController(variables, resultTextController),
+                  _buildOperatorButtonsForController(resultTextController),
+                ],
+              ),
             ),
           ],
         ),
@@ -636,13 +802,38 @@ class _FormulaEditorState extends State<FormulaEditor> {
   }
 
   Future<void> _addCondition(List<Variable> variables) async {
+    final newCondition = Condition(condition: '', resultExpression: '');
+    final newConditionController = TextEditingController(text: '');
+    final newResultController = TextEditingController(text: '');
+    
+    final int newIndex = _conditions.length; // Index before adding
+
+    newConditionController.addListener(() {
+      if (newIndex < _conditions.length) {
+        _conditions[newIndex].condition = newConditionController.text;
+      }
+    });
+    newResultController.addListener(() {
+      if (newIndex < _conditions.length) {
+        _conditions[newIndex].resultExpression = newResultController.text;
+      }
+    });
+
     setState(() {
-      _conditions.add(Condition(condition: '', resultExpression: ''));
+      _conditions.add(newCondition);
+      _conditionControllers.add(newConditionController);
+      _resultExpressionControllers.add(newResultController);
     });
   }
 
   void _removeCondition(int index) {
+    // Dispose controllers before removing them from the list and the condition from _conditions
+    _conditionControllers[index].dispose();
+    _resultExpressionControllers[index].dispose();
+
     setState(() {
+      _conditionControllers.removeAt(index);
+      _resultExpressionControllers.removeAt(index);
       _conditions.removeAt(index);
     });
   }
