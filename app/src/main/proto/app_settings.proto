@@ -1,0 +1,71 @@
+syntax = "proto3";
+
+option java_package = "com.example.finalpaycalculator.datastore";
+option java_multiple_files = true;
+
+message AppSettings {
+    repeated ProtoVariable variables = 1;
+    repeated ProtoFormula formulas = 2;
+    repeated ProtoInputField input_fields = 3;
+}
+
+enum ProtoDataType {
+    PROTO_DATA_TYPE_UNSPECIFIED = 0; // Default, maps to null or error
+    NUMBER = 1;
+    TEXT = 2;
+    BOOLEAN = 3;
+    CHOICE = 4;
+}
+
+message ProtoVariable {
+    string id = 1;
+    string name = 2;
+    optional string description = 3;
+    string initial_value_string = 4;
+    ProtoDataType type = 5;
+    repeated string options = 6;
+}
+
+message ProtoExpressionElement {
+    oneof element_type {
+        ProtoVariableElement variable_element = 1;
+        ProtoOperatorElement operator_element = 2;
+        ProtoLiteralElement literal_element = 3;
+    }
+}
+
+message ProtoVariableElement {
+    string variable_id = 1;
+}
+
+message ProtoOperatorElement {
+    string operator_string = 1; // "operator" is a keyword in some contexts
+}
+
+message ProtoLiteralElement {
+    string value_string = 1; // "value" can also be problematic
+}
+
+message ProtoExpression {
+    repeated ProtoExpressionElement elements = 1;
+}
+
+message ProtoConditionalExpression {
+    ProtoExpression condition = 1;
+    ProtoExpression result_expression = 2;
+}
+
+message ProtoFormula {
+    string id = 1;
+    string name = 2;
+    optional ProtoExpression expression = 3;
+    repeated ProtoConditionalExpression conditions = 4;
+    optional ProtoExpression default_expression = 5;
+}
+
+message ProtoInputField {
+    string id = 1;
+    string label = 2;
+    optional string description = 3;
+    string linked_variable_id = 4;
+}
