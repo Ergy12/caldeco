@@ -23,8 +23,8 @@ android {
         applicationId = "com.votreentreprise.caldec"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCodeAsInt()
-        versionName = flutter.versionNameAsString()
+        versionCode = flutter.versionCode.toInt()
+versionName = flutter.versionName
     }
 
     // --- DÉBUT DES MODIFICATIONS POUR LA SIGNATURE (CORRIGÉES) ---
